@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Calculadora">
+<meta name="theme-color" content="#000000">
+<meta name="robots" content="noindex, nofollow">
+<title>Calculadora</title>
+<style>
+:root{
+  --bg:#000000; --text:#ffffff; --muted:#8e8e93; --border:#2c2c2e;
+  --key-dark:#333333; --key-dark-press:#737373;
+  --key-light:#a5a5a5; --key-light-press:#d9d9d9;
+  --key-op:#ff9f0a; --key-op-press:#fcc78d;
+  --bubble:#0a84ff; --danger:#ff453a; --sheet:#2c2c2e;
+  color-scheme:dark;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#000000; --text:#ffffff; } }
+:root[data-theme="dark"]{ --bg:#000000; --text:#ffffff; }
+html{ scroll-padding-top:env(safe-area-inset-top,0px); }
+*{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+html,body{ height:100%; }
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue",Helvetica,Arial,sans-serif;
+  overflow:hidden; user-select:none; -webkit-user-select:none; overscroll-behavior:none;
+}
+[hidden]{ display:none !important; }
+.screen{ height:100%; display:flex; flex-direction:column; }
+
+/* ---------- Calculadora ---------- */
+#calc{
+  --gap:14px;
+  --s:min(calc((100vw - 32px - 3 * var(--gap)) / 4), 11.2vh, 90px);
+  width:100%; max-width:440px; margin:0 auto; padding:0 16px 18px;
+}
+.display{ flex:1; display:flex; align-items:flex-end; justify-content:flex-end; padding:0 10px 14px; overflow:hidden; min-height:0; }
+#out{ font-size:88px; font-weight:300; line-height:1; white-space:nowrap; letter-spacing:-1px; }
+.keys{ display:grid; grid-template-columns:repeat(4,var(--s)); gap:var(--gap); justify-content:center; }
+.k{
+  width:var(--s); height:var(--s); border:0; border-radius:50%;
+  font:inherit; font-size:calc(var(--s) * .42); font-weight:400;
+  color:var(--text); background:var(--key-dark);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; touch-action:manipulation; transition:background .35s, color .35s;
+}
+.k:active{ background:var(--key-dark-press); transition:none; }
+.k.fn{ background:var(--key-light); color:#000; font-size:calc(var(--s) * .36); font-weight:500; }
+.k.fn:active{ background:var(--key-light-press); }
+.k.op{ background:var(--key-op); font-size:calc(var(--s) * .48); }
+.k.op:active{ background:var(--key-op-press); }
+.k.op.on{ background:#fff; color:var(--key-op); }
+.k.zero{ width:calc(var(--s) * 2 + var(--gap)); grid-column:span 2; border-radius:999px; justify-content:flex-start; padding-left:calc(var(--s) * .38); }
+.k:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+
+/* ---------- Chat ---------- */
+#vault{ width:100%; max-width:640px; margin:0 auto; }
+.bar{ position:relative; display:flex; align-items:center; justify-content:space-between; padding:10px 16px; border-bottom:1px solid var(--border); }
+.bar h1{ position:absolute; left:50%; transform:translateX(-50%); font-size:17px; font-weight:600; }
+.bar button{ background:none; border:0; color:var(--bubble); font:inherit; font-size:17px; padding:6px 0; cursor:pointer; }
+#list{
+  flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  display:flex; flex-direction:column; gap:6px; padding:14px 12px 10px;
+}
+.msg{
+  align-self:flex-end; max-width:78%;
+  background:var(--bubble); color:#fff;
+  padding:8px 14px; border-radius:18px;
+  font-size:17px; line-height:1.3;
+  white-space:pre-wrap; overflow-wrap:anywhere;
+  cursor:pointer; user-select:text; -webkit-user-select:text;
+}
+.msg:active{ filter:brightness(.85); }
+.empty{ margin:auto; text-align:center; color:var(--muted); font-size:15px; line-height:1.45; padding:0 24px; }
+.compose{ display:flex; align-items:flex-end; gap:8px; padding:8px 12px 10px; border-top:1px solid var(--border); }
+#txt{
+  flex:1; resize:none; max-height:140px;
+  background:var(--bg); color:var(--text);
+  border:1px solid var(--border); border-radius:20px;
+  padding:8px 14px; font:inherit; font-size:17px; line-height:1.3; outline:none;
+  user-select:text; -webkit-user-select:text;
+}
+#txt:focus{ border-color:#48484a; }
+#send{
+  flex:none; width:36px; height:36px; margin-bottom:2px; border:0; border-radius:50%;
+  background:var(--bubble); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+#send:disabled{ background:#3a3a3c; color:#8e8e93; cursor:default; }
+#send:focus-visible, .bar button:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+
+/* ---------- Menu da mensagem ---------- */
+.overlay{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:flex-end; justify-content:center; padding:0 8px calc(8px + env(safe-area-inset-bottom,0px)); z-index:20; }
+.sheet{ width:100%; max-width:420px; display:flex; flex-direction:column; gap:8px; animation:up .22s ease-out; }
+.group{ background:var(--sheet); border-radius:14px; overflow:hidden; }
+.group button{ width:100%; background:none; border:0; color:var(--bubble); font:inherit; font-size:19px; padding:16px; cursor:pointer; }
+.group button + button{ border-top:1px solid #3a3a3c; }
+.group button.del{ color:var(--danger); }
+.group button.cancel{ font-weight:600; }
+@keyframes up{ from{ transform:translateY(30px); opacity:0; } to{ transform:none; opacity:1; } }
+@media (prefers-reduced-motion: reduce){ .sheet{ animation:none; } }
+
+.toast{ position:fixed; left:50%; top:calc(16px + env(safe-area-inset-top,0px)); transform:translateX(-50%); background:#2c2c2e; color:#fff; font-size:14px; padding:10px 16px; border-radius:12px; z-index:30; max-width:90vw; text-align:center; }
+</style>
+</head>
+<body>
+
+<!-- Calculadora -->
+<main id="calc" class="screen">
+  <div class="display" id="displayBox"><div id="out" aria-live="polite">0</div></div>
+  <div class="keys">
+    <button class="k fn" data-k="clear" id="acBtn">AC</button>
+    <button class="k fn" data-k="neg">±</button>
+    <button class="k fn" data-k="pct">%</button>
+    <button class="k op" data-k="op" data-op="÷">÷</button>
+    <button class="k" data-k="d" data-d="7">7</button>
+    <button class="k" data-k="d" data-d="8">8</button>
+    <button class="k" data-k="d" data-d="9">9</button>
+    <button class="k op" data-k="op" data-op="×">×</button>
+    <button class="k" data-k="d" data-d="4">4</button>
+    <button class="k" data-k="d" data-d="5">5</button>
+    <button class="k" data-k="d" data-d="6">6</button>
+    <button class="k op" data-k="op" data-op="−">−</button>
+    <button class="k" data-k="d" data-d="1">1</button>
+    <button class="k" data-k="d" data-d="2">2</button>
+    <button class="k" data-k="d" data-d="3">3</button>
+    <button class="k op" data-k="op" data-op="+">+</button>
+    <button class="k zero" data-k="d" data-d="0">0</button>
+    <button class="k" data-k="comma">,</button>
+    <button class="k op" data-k="eq">=</button>
+  </div>
+</main>
+
+<!-- Notas -->
+<section id="vault" class="screen" hidden>
+  <header class="bar">
+    <button id="exitBtn">Sair</button>
+    <h1>Notas</h1>
+    <span style="width:34px"></span>
+  </header>
+  <div id="list"></div>
+  <div class="compose">
+    <textarea id="txt" rows="1" placeholder="Mensagem" aria-label="Escrever nota"></textarea>
+    <button id="send" aria-label="Enviar" disabled>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+    </button>
+  </div>
+</section>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="sheet" role="dialog" aria-label="Opções da nota">
+    <div class="group">
+      <button id="copyBtn">Copiar</button>
+      <button id="delBtn" class="del">Apagar</button>
+    </div>
+    <div class="group"><button id="cancelBtn" class="cancel">Cancelar</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const SECRET = '0611';
+
+  /* ================= Calculadora ================= */
+  const out = $('#out'), box = $('#displayBox'), acBtn = $('#acBtn');
+  const MAXD = 9;
+  let entry = null, value = 0, acc = null, op = null, lastOp = null, lastN = null, seq = '';
+
+  const num = () => entry !== null ? parseFloat(entry) : value;
+  const digitsIn = s => s.replace(/[^0-9]/g,'').length;
+
+  function fmtRaw(s){
+    let neg = s.startsWith('-'); if (neg) s = s.slice(1);
+    let [i, d] = s.split('.');
+    i = i.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return (neg ? '-' : '') + i + (d !== undefined ? ',' + d : '');
+  }
+  function fmtNum(n){
+    if (!isFinite(n)) return 'Erro';
+    if (n === 0) return '0';
+    const a = Math.abs(n);
+    if (a >= 1e9 || a < 1e-8) return n.toExponential(4).replace(/\.?0+e/, 'e').replace('e+', 'e').replace('.', ',');
+    const intLen = Math.floor(a).toString().length;
+    const dec = Math.max(0, MAXD - intLen);
+    return fmtRaw(parseFloat(n.toFixed(dec)).toString());
+  }
+  function calc(a, b, o){
+    let r;
+    if (o === '+') r = a + b;
+    else if (o === '−') r = a - b;
+    else if (o === '×') r = a * b;
+    else r = b === 0 ? NaN : a / b;
+    return isFinite(r) ? parseFloat(r.toPrecision(12)) : NaN;
+  }
+  function render(){
+    out.textContent = entry !== null ? fmtRaw(entry) : fmtNum(value);
+    out.style.fontSize = '88px';
+    const w = box.clientWidth - 20;
+    if (out.scrollWidth > w) out.style.fontSize = Math.floor(88 * w / out.scrollWidth) + 'px';
+    acBtn.textContent = (entry !== null && entry !== '0') ? 'C' : 'AC';
+    document.querySelectorAll('.k.op[data-op]').forEach(b =>
+      b.classList.toggle('on', b.dataset.op === op && entry === null));
+  }
+  function allClear(){ entry = null; value = 0; acc = null; op = null; lastOp = null; lastN = null; seq = ''; render(); }
+
+  function press(k, el){
+    if (k === 'd'){
+      const d = el.dataset.d; seq += d;
+      if (entry === null || entry === '0') entry = d;
+      else if (entry === '-0') entry = '-' + d;
+      else if (digitsIn(entry) < MAXD) entry += d;
+    } else if (k === 'comma'){
+      if (entry === null) entry = '0.';
+      else if (!entry.includes('.') && digitsIn(entry) < MAXD) entry += '.';
+    } else if (k === 'op'){
+      seq = '';
+      const o = el.dataset.op;
+      if (op && entry !== null) acc = calc(acc, num(), op);
+      else if (!op) acc = num();
+      value = acc; entry = null; op = o;
+    } else if (k === 'eq'){
+      if (seq === SECRET && !op){ allClear(); openVault(); return; }
+      seq = '';
+      if (op){
+        const n = num();
+        value = calc(acc, n, op); lastOp = op; lastN = n; op = null; acc = null; entry = null;
+      } else if (lastOp){
+        value = calc(num(), lastN, lastOp); entry = null;
+      }
+    } else if (k === 'pct'){
+      seq = ''; value = num() / 100; entry = null;
+    } else if (k === 'neg'){
+      seq = '';
+      if (entry !== null) entry = entry.startsWith('-') ? entry.slice(1) : '-' + entry;
+      else value = -value;
+    } else if (k === 'clear'){
+      seq = '';
+      if (entry !== null && entry !== '0'){ entry = null; value = 0; }
+      else allClear();
+    }
+    render();
+  }
+  document.querySelector('.keys').addEventListener('click', e => {
+    const b = e.target.closest('.k'); if (b) press(b.dataset.k, b);
+  });
+  document.addEventListener('keydown', e => {
+    if ($('#calc').hidden) return;
+    const map = { '+':'+', '-':'−', '*':'×', 'x':'×', '/':'÷' };
+    let b = null;
+    if (/^[0-9]$/.test(e.key)) b = document.querySelector(`.k[data-d="${e.key}"]`);
+    else if (map[e.key]) b = document.querySelector(`.k[data-op="${map[e.key]}"]`);
+    else if (e.key === 'Enter' || e.key === '=') b = document.querySelector('.k[data-k="eq"]');
+    else if (e.key === ',' || e.key === '.') b = document.querySelector('.k[data-k="comma"]');
+    else if (e.key === 'Escape' || e.key === 'Backspace') b = acBtn;
+    else if (e.key === '%') b = document.querySelector('.k[data-k="pct"]');
+    if (b){ e.preventDefault(); press(b.dataset.k, b); }
+  });
+  window.addEventListener('resize', render);
+
+  /* ================= Armazenamento criptografado ================= */
+  const K_SALT = 'calc.s', K_DATA = 'calc.d';
+  const enc = new TextEncoder(), dec = new TextDecoder();
+  const lsGet = k => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); return true; } catch(e){ return false; } };
+  function b64(buf){ let s = ''; const u = new Uint8Array(buf); for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+  const ub64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+
+  let key = null, notes = [], broken = false;
+
+  async function deriveKey(pass){
+    let s = lsGet(K_SALT), salt;
+    if (s) salt = ub64(s);
+    else { salt = crypto.getRandomValues(new Uint8Array(16)); lsSet(K_SALT, b64(salt)); }
+    const base = await crypto.subtle.importKey('raw', enc.encode(pass), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({ name:'PBKDF2', salt, iterations:200000, hash:'SHA-256' }, base, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
+  }
+  async function load(){
+    const raw = lsGet(K_DATA); if (!raw) return [];
+    const { iv, ct } = JSON.parse(raw);
+    const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv:ub64(iv) }, key, ub64(ct));
+    return JSON.parse(dec.decode(pt));
+  }
+  async function save(){
+    if (!key || broken) return;
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, enc.encode(JSON.stringify(notes)));
+    if (!lsSet(K_DATA, JSON.stringify({ iv:b64(iv), ct:b64(ct) })))
+      toast('Não foi possível salvar: o armazenamento do navegador está cheio ou bloqueado.');
+  }
+
+  /* ================= Chat ================= */
+  const list = $('#list'), txt = $('#txt'), sendBtn = $('#send'), overlay = $('#overlay');
+  let selected = null;
+
+  async function openVault(){
+    if (!window.crypto || !crypto.subtle){ toast('Este navegador não permite abrir as notas.'); return; }
+    try {
+      key = await deriveKey(SECRET);
+      try { notes = await load(); broken = false; }
+      catch(e){ notes = []; broken = true; toast('As notas salvas não puderam ser lidas. Nada será sobrescrito.'); }
+    } catch(e){ toast('Não foi possível abrir as notas.'); return; }
+    $('#calc').hidden = true; $('#vault').hidden = false;
+    renderList();
+  }
+  function lock(){
+    key = null; notes = []; selected = null;
+    list.innerHTML = ''; txt.value = ''; autosize();
+    overlay.hidden = true; $('#vault').hidden = true; $('#calc').hidden = false;
+    document.documentElement.style.height = '';
+    allClear();
+  }
+  function renderList(){
+    list.innerHTML = '';
+    if (!notes.length){
+      const e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = 'Nenhuma nota ainda.\nEscreva abaixo. Tudo fica salvo só neste aparelho.';
+      e.style.whiteSpace = 'pre-line';
+      list.appendChild(e);
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    notes.forEach(n => {
+      const m = document.createElement('div');
+      m.className = 'msg'; m.textContent = n.t; m.dataset.id = n.id;
+      frag.appendChild(m);
+    });
+    list.appendChild(frag);
+    list.scrollTop = list.scrollHeight;
+  }
+  function send(){
+    const t = txt.value.trim(); if (!t) return;
+    notes.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), t });
+    txt.value = ''; autosize(); renderList(); save();
+  }
+  function autosize(){
+    txt.style.height = 'auto';
+    txt.style.height = Math.min(txt.scrollHeight, 140) + 'px';
+    sendBtn.disabled = !txt.value.trim();
+  }
+  txt.addEventListener('input', autosize);
+  txt.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey && !matchMedia('(pointer:coarse)').matches){ e.preventDefault(); send(); }
+  });
+  sendBtn.addEventListener('click', () => { send(); txt.focus(); });
+  $('#exitBtn').addEventListener('click', lock);
+
+  list.addEventListener('click', e => {
+    const m = e.target.closest('.msg'); if (!m) return;
+    if (String(window.getSelection())) return;
+    selected = m.dataset.id; overlay.hidden = false;
+  });
+  overlay.addEventListener('click', e => { if (e.target === overlay) { overlay.hidden = true; selected = null; } });
+  $('#cancelBtn').addEventListener('click', () => { overlay.hidden = true; selected = null; });
+  $('#copyBtn').addEventListener('click', async () => {
+    const n = notes.find(x => x.id === selected); overlay.hidden = true;
+    if (!n) return;
+    try { await navigator.clipboard.writeText(n.t); toast('Copiado'); }
+    catch(e){
+      const ta = document.createElement('textarea'); ta.value = n.t; document.body.appendChild(ta);
+      ta.select(); try { document.execCommand('copy'); toast('Copiado'); } catch(_){ toast('Não foi possível copiar.'); }
+      ta.remove();
+    }
+  });
+  $('#delBtn').addEventListener('click', () => {
+    notes = notes.filter(x => x.id !== selected); selected = null;
+    overlay.hidden = true; renderList(); save();
+  });
+
+  // Bloqueia ao sair do app ou trocar de aba
+  document.addEventListener('visibilitychange', () => { if (document.hidden && key) lock(); });
+  window.addEventListener('pagehide', () => { if (key) lock(); });
+
+  // Teclado do celular: ajusta a altura para o campo não ficar escondido
+  if (window.visualViewport){
+    visualViewport.addEventListener('resize', () => {
+      if ($('#vault').hidden) return;
+      document.documentElement.style.height = visualViewport.height + 'px';
+      window.scrollTo(0, 0);
+      list.scrollTop = list.scrollHeight;
+    });
+  }
+
+  let toastTimer;
+  function toast(msg){
+    let t = document.querySelector('.toast');
+    if (!t){ t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); }
+    t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 2600);
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
